@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="keywords" content="digital, portfolio" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LED Cloud</title>
+
+  <!-- Style Sheets --->
+  <link href="style.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+  <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
+
+  <!--- Sripts --->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+  <script src="app.js" defer></script>
+
+</head>
+
+<body>
+  <!--- Main Window --->
+  <div class="main">
+
+    <!--- Header Bar --->
+    <div class="header">
+      <h1>LED Cloud<i class="bi bi-cloud-fill m-2" style="color:white"></i></h1>
+      <!--- Power Switch --->
+      <div class="power">
+        <input id="power" type="checkbox" checked data-toggle="toggle" data-onstyle="success" data-offstyle="secondary">
+      </div>
+    </div>
+
+    <!--- Color Picker --->
+    <div class="colorPicker"></div>
+    <div id="picker"></div>
+
+    <!--- Preset Buttons --->
+    <div class="pContainer">
+      <div id="pLink" class="presets">
+        <a href="red" class="link"><div class="color" style="background-color:red"></div></a>
+        <a href="green" class="link"><div class="color" style="background-color:green"></div></a>
+        <a href="blue" class="link"><div class="color" style="background-color:blue"></div></a>
+        <a href="purple" class="link"><div class="color" style="background-color:purple"></div></a>
+        <a href="cyan" class="link"><div class="color" style="background-color:cyan"></div></a>
+        <a href="yellow" class="link"><div class="color" style="background-color:yellow"></div></a>
+      </div>
+    </div>
+
+    <!--- Brightness Slider --->
+    <div class="brightness">
+      <i class="bi bi-brightness-low-fill"></i>
+      <input class="slider" id="brightness" type="range" min="0" max="100" step="1" value="50" onchange="setBrightness(this.value)">
+      <i class="bi bi-brightness-high-fill"></i>
+    </div>
+
+    <!--- Pattern Selector --->
+    <div class="selector">
+      <div class="input-group mb-3">
+        <div class="input-group-prepend">
+          <label class="input-group-text" for="inputGroupSelect01">Pattern</label>
+        </div>
+        <select id="pattern" class="custom-select" id="inputGroupSelect01" onchange="selectPattern()">
+          <option value=-1 selected>Choose...</option>
+          <option value=0>Solid</option>
+          <option value=1>Rainbow</option>
+          <option value=2>Lightning</option>
+          <option value=3>Confetti</option>
+          <option value=4>Twinkle</option>
+          <option value=5>Sweep</option>
+          <option value=6>Lava</option>
+          <option value=7>Cloud</option>
+          <option value=8>Party</option>
+          <option value=9>Ocean</option>
+          <option value=10>Forest</option>
+          <option value=11>Heat</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
