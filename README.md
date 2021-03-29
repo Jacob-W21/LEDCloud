@@ -15,3 +15,5 @@ Currently there are 12 patterns, and some patterns allow for custom colors.
 ![image5](https://user-images.githubusercontent.com/53021624/111359794-f4ab2400-8659-11eb-9543-dc8c7fa47183.jpeg)
 
 This is the cloud itself after being hungup and plugged in.
+
+I will be continuing to update this project if any bugs are found or I come up with ideas to improve the project!
