@@ -1,6 +1,13 @@
+#if !( defined(ESP8266) )
+#error This code is intended to run on ESP8266 platform! Please check your Tools->Board setting.
+#endif
+
+//Include Libraries
+#include <ESP_WiFiManager.h>              //https://github.com/khoih-prog/ESP_WiFiManager
 #include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
 #include <FastLED.h>
 
 // Declare Strip
@@ -15,6 +22,7 @@ TBlendType    currentBlending;
 unsigned int dimmer = 1;
 
 //Needed Variables
+String nameString = "LEDCloud";
 int pattern;
 bool power = false;
 int rInt = -1;
@@ -23,11 +31,6 @@ int bInt = -1;
 uint8_t gHue = 0;
 int brightness;
 
-
-// Replace with your network credentials
-const char* ssid = "[ENTER SSID]";
-const char* password = "[ENTER PASSWORD]";
-
 //Parameters
 const char* BRIGHT = "amount";
 const char* red = "red";
@@ -35,11 +38,12 @@ const char* green = "green";
 const char* blue = "blue";
 const char* CHOICE = "choice";
 
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
+ESP8266WebServer server(80);
+ESP_WiFiManager wifiManager("LEDCloud");
+ESP8266HTTPUpdateServer httpUpdateServer;
 
+//Setup ESP
 void setup() {
-  // Serial port for debugging purposes
   Serial.begin(115200);
   currentBlending = LINEARBLEND;
 
@@ -49,180 +53,199 @@ void setup() {
     return;
   }
 
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi..");
+  //wifiManager.resetSettings(); testing purposes
+  //Create wifi manager instance on LEDCloud
+  wifiManager.autoConnect("LEDCloud");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print(F("Connected. Local IP: "));
+    Serial.println(WiFi.localIP());
   }
-
-  // Print Local IP Address
-  Serial.println(WiFi.localIP());
+  else {
+    Serial.println(wifiManager.getStatus(WiFi.status()));
+  }
 
   //Setup LED Strip
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness(200);
   turnOff();
 
-  // Route for root / web page
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, "/index.html", "text/html");
-  });
-
-  // Route to handle favicon
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, "/favicon.png", "image/png");
-  });
-
-  // Route for /about web page
-  server.on("/index.html", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, "/index.html", "text/html");
-  });
-
-  // Route for /about web page
-  server.on("/about.html", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, "/about.html", "text/html");
-  });
-
-  // Route to load style.css file
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, "/style.css", "text/css");
-  });
-
-  // Route to load app.js
-  server.on("/app.js", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, "/app.js", "text/javascript");
-  });
-
   // Route to turn strip on
-  server.on("/on", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/on", HTTP_POST, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("on");
     turnOn();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   // Route to turn strip off
-  server.on("/off", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/off", HTTP_POST, []() {
     pattern = -1;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("off");
     turnOff();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   // Route to set brightness
-  server.on("/brightness", HTTP_POST, [](AsyncWebServerRequest * request) {
-    int amount = request->getParam(BRIGHT)->value().toInt();
+  server.on("/brightness", HTTP_POST, []() {
+    int amount = server.arg(BRIGHT).toInt();
     brightness = amount * 2.55;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendInt(brightness);
     FastLED.setBrightness(brightness);
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   // Route to set color
-  server.on("/color", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/color", HTTP_POST, []() {
     pattern = 0;
-    String r = request->getParam(red)->value();
-    String g = request->getParam(green)->value();
-    String b = request->getParam(blue)->value();
+    String r = server.arg(red);
+    String g = server.arg(green);
+    String b = server.arg(blue);
     rInt = r.toInt();
     gInt = g.toInt();
     bInt = b.toInt();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendInt(rInt);
     Serial.println("Color set to: rgb(" + r + "," + g + "," + b + ")");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   //Route to set red
-  server.on("/red", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/red", HTTP_POST, []() {
     pattern = 0;
     rInt = 255;
     gInt = 0;
     bInt = 0;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("red");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   //Route to set green
-  server.on("/green", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/green", HTTP_POST, []() {
     pattern = 0;
     rInt = 0;
     gInt = 128;
     bInt = 0;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("green");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   //Route to set blue
-  server.on("/blue", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/blue", HTTP_POST, []() {
     pattern = 0;
     rInt = 0;
     gInt = 255;
     bInt = 255;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("blue");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   //Route to set purple
-  server.on("/purple", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/purple", HTTP_POST, []() {
     pattern = 0;
     rInt = 128;
     gInt = 0;
     bInt = 128;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("purple");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   //Route to set cyan
-  server.on("/cyan", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/cyan", HTTP_POST, []() {
     pattern = 0;
     rInt = 0;
     gInt = 255;
     bInt = 255;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("cyan");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   //Route to set yellow
-  server.on("/yellow", HTTP_POST, [](AsyncWebServerRequest * request) {
+  server.on("/yellow", HTTP_POST, []() {
     pattern = 0;
     rInt = 255;
     gInt = 255;
     bInt = 0;
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendString("yellow");
     fill_solid(leds, NUM_LEDS, CRGB(rInt, gInt, bInt));
     FastLED.show();
-    request->send(SPIFFS, "/index.html", "text/html");
   });
 
   // Route to set pattern
-  server.on("/pattern", HTTP_POST, [](AsyncWebServerRequest * request) {
-    pattern = request->getParam(CHOICE)->value().toInt();
-    request->send(SPIFFS, "/index.html", "text/html");
+  server.on("/pattern", HTTP_POST, []() {
+    pattern = server.arg(CHOICE).toInt();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    sendInt(pattern);
   });
 
+  httpUpdateServer.setup(&server);
+
+  server.serveStatic("/", SPIFFS, "/", "max-age=86400");
+
+  MDNS.begin(nameString);
   server.begin();
 }
 
+//Function for sending int to server
+void sendInt(uint8_t value)
+{
+  sendString(String(value));
+}
+
+//Function for sending string to server
+void sendString(String value)
+{
+  server.send(200, "text/plain", value);
+}
+
 void loop() {
+  server.handleClient();
+  MDNS.update();
+  //Wait to connect
+  static bool hasConnected = false;
+  if (WiFi.status() != WL_CONNECTED) {
+    hasConnected = false;
+  }
+  else if (!hasConnected) {
+    hasConnected = true;
+    MDNS.begin(nameString);
+    MDNS.setHostname(nameString);
+    server.begin();
+    Serial.println("HTTP web server started");
+    Serial.print("Connected! Open http://");
+    Serial.print(WiFi.localIP());
+    Serial.print(" or http://");
+    Serial.print(nameString);
+    Serial.println(".local in your browser");
+  }
+  //Switch statement for pattern
   switch (pattern) {
     case 0: break;
-    case 1: rainbow();    break;
-    case 2: lightning();  break;
-    case 3: confetti();   break;
-    case 4: twinkle();    break;
-    case 5: sweep();      break;
-    case 6: runPalette(LavaColors_p);    break;
-    case 7: runPalette(CloudColors_p);   break;
-    case 8: runPalette(PartyColors_p);   break;
-    case 9: runPalette(OceanColors_p);   break;
-    case 10: runPalette(ForestColors_p); break;
-    case 11: runPalette(HeatColors_p);   break;
+    case 1: runPalette(RainbowStripeColors_p); break;
+    case 2: confetti();   break;
+    case 3: twinkle();    break;
+    case 4: sweep();      break;
+    case 5: runPalette(LavaColors_p);    break;
+    case 6: runPalette(CloudColors_p);   break;
+    case 7: runPalette(PartyColors_p);   break;
+    case 8: runPalette(OceanColors_p);   break;
+    case 9: runPalette(ForestColors_p); break;
+    case 10: runPalette(HeatColors_p);   break;
   }
 }
 
+//Turn on LED Strip
 void turnOn() {
   if (rInt == -1 || gInt == -1 || bInt == -1) {
     fill_solid(leds, NUM_LEDS, CRGB::White);
@@ -233,42 +256,10 @@ void turnOn() {
   }
 }
 
+//Turn off LED Strip
 void turnOff() {
   FastLED.clear();
   FastLED.show();
-}
-
-void rainbow() {
-  for (int j = 0; j < 255; j++) {
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CHSV(i - (j * 2), 255, 255);
-    }
-    FastLED.show();
-    delay(25);
-    if (pattern != 1) {
-      return;
-    }
-  }
-}
-
-void lightning() {
-  for (int flashCounter = 0; flashCounter < random8(3, FLASHES); flashCounter++) {
-    if (flashCounter == 0) dimmer = 5;
-    else dimmer = random8(1, 3);
-
-    fill_solid(leds, NUM_LEDS, CHSV(255, 0, 255 / dimmer));
-    FastLED.show();
-    delay(random8(4, 10));
-    fill_solid(leds, NUM_LEDS, CHSV(0, 0, 0));
-    FastLED.show();
-
-    if (flashCounter == 0) delay (150);
-    delay(50 + random8(100));
-    if (pattern != 2) {
-      return;
-    }
-  }
-  delay(random8(FREQUENCY) * 100);
 }
 
 void confetti() {
